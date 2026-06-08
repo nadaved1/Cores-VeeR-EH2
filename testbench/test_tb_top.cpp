@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 #include <stdlib.h>
+#include <cstring>
 #include <iostream>
 #include <utility>
 #include <string>
@@ -43,7 +44,15 @@ int main(int argc, char** argv) {
   Verilated::traceEverOn(true);
   tfp = new VerilatedVcdC;
   tb->trace (tfp, 24);
-  tfp->open ("sim.vcd");
+  // VCD output file name. Defaults to sim.vcd; override at runtime with
+  // +vcdfile=<name> (the Makefile passes +vcdfile=$(TEST).vcd on debug=1).
+  std::string vcdname = "sim.vcd";
+  const char* vcdarg = Verilated::commandArgsPlusMatch("vcdfile=");
+  if (vcdarg && vcdarg[0]) {
+    const char* eq = strchr(vcdarg, '=');
+    if (eq && eq[1]) vcdname = eq + 1;
+  }
+  tfp->open (vcdname.c_str());
 #endif
   // Simulate
   while(!Verilated::gotFinish()){

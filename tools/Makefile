@@ -38,6 +38,9 @@ IRUN = xrun
 VCS = vcs
 VLOG = qverilog
 VERILATOR = verilator
+# Warnings to suppress for the Verilator build. -Wno-STMTDLY is required for
+# Verilator >= 5.x, which promotes the #delay in SimJTAG.v to a fatal error.
+VERILATOR_WARN = -Wno-WIDTH -Wno-UNOPTFLAT -Wno-IMPLICIT -Wno-STMTDLY
 RIVIERA = riviera
 GCC_PREFIX = riscv64-unknown-elf
 BUILD_DIR = snapshots/${snapshot}
@@ -64,6 +67,9 @@ ifdef debug
  IRUN_DEBUG_RUN = -input ${RV_ROOT}/testbench/input.tcl
  VCS_DEBUG = -debug_access
  VERILATOR_DEBUG = --trace
+ # Name the Verilator VCD after the test so each run dumps <TEST>.vcd
+ # (e.g. dhry.vcd) into the working dir instead of a generic sim.vcd.
+ VERILATOR_RUN_ARGS = +vcdfile=$(TEST).vcd
  RIVIERA_DEBUG = +access +r
 endif
 
@@ -102,7 +108,7 @@ clean:
 	rm -rf *.log *.s *.hex *.dis *.tbl irun* vcs* simv* snapshots veer* \
 	verilator* *.map *.exe obj* *.o ucli.key vc_hdrs.h csrc *.csv \
 	work dataset.asdb  library.cfg vsimsa.cfg  riviera-build wave.asdb \
-	SimJTAG.so
+	SimJTAG.so .program_hex_test
 
 
 
@@ -116,8 +122,8 @@ verilator-build: ${TBFILES} ${BUILD_DIR}/defines.h test_tb_top.cpp
 	echo '`undef RV_ASSERT_ON' >> ${BUILD_DIR}/common_defines.vh
 	$(VERILATOR)  --cc -CFLAGS ${CFLAGS} $(defines) \
 	  $(includes) -I${RV_ROOT}/testbench -f ${RV_ROOT}/testbench/flist \
-	  -Wno-WIDTH -Wno-UNOPTFLAT -Wno-IMPLICIT ${TBFILES} --top-module tb_top \
-	  -exe test_tb_top.cpp --autoflush $(VERILATOR_DEBUG)
+	  $(VERILATOR_WARN) ${TBFILES} --top-module tb_top \
+	  -exe test_tb_top.cpp --autoflush $(VERILATOR_DEBUG) --no-timing
 	$(MAKE) -j -C obj_dir -f Vtb_top.mk $(VERILATOR_MAKE_FLAGS)
 	touch verilator-build
 
@@ -151,7 +157,7 @@ riviera-build: ${TBFILES} ${BUILD_DIR}/defines.h ${RV_ROOT}/testbench/flist.rivi
 #################### TEST Simulation Run ###############################
 
 verilator: program.hex verilator-build
-	./obj_dir/Vtb_top $(run_arg)
+	./obj_dir/Vtb_top $(run_arg) $(VERILATOR_RUN_ARGS)
 
 irun: program.hex irun-build
 	$(IRUN) -64bit  +lic_queue -licqueue \
@@ -173,9 +179,15 @@ riviera: program.hex riviera-build SimJTAG.so
 #################### TEST Build #######################################
 
 ifeq ($(shell which $(GCC_PREFIX)-gcc 2> /dev/null),)
-program.hex: ${BUILD_DIR}/defines.h
-	@echo " !!! No $(GCC_PREFIX)-gcc in path, using canned hex files !!"
-	cp ${HEX_DIR}/$(TEST).hex program.hex
+# Canned hex files all share one mtime, so a normal prerequisite won't force a
+# re-copy when TEST changes. Use FORCE + a stamp of the last TEST so program.hex
+# is refreshed whenever the selected test differs from what was last copied.
+program.hex: ${BUILD_DIR}/defines.h FORCE
+	@if [ "$$(cat .program_hex_test 2> /dev/null)" != "$(TEST)" ] || [ ! -f program.hex ]; then \
+	  echo " !!! No $(GCC_PREFIX)-gcc in path, using canned hex files !!"; \
+	  cp ${HEX_DIR}/$(TEST).hex program.hex; \
+	  echo "$(TEST)" > .program_hex_test; \
+	fi
 else
 ifneq (,$(wildcard $(TEST_DIR)/$(TEST).makefile))
 program.hex:
@@ -206,4 +218,5 @@ help:
 	@echo Make sure the environment variable RV_ROOT is set.
 	@echo Possible targets: verilator vcs irun vlog riviera help clean all verilator-build irun-build vcs-build riviera-build program.hex
 
-.PHONY: help clean verilator vcs irun vlog riviera
+FORCE: ;
+.PHONY: help clean verilator vcs irun vlog riviera FORCE

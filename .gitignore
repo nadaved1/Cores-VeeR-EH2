@@ -6,3 +6,4 @@ obj_dir
 *.log
 *.exe
 *.swp
+.program_hex_test
