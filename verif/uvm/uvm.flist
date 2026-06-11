@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Western Digital Corporation or its affiliates.
+//
+// File list for the VeeR EH2 bus/SoC integration UVM environment (commercial
+// simulators only: VCS / Xcelium / Questa). UVM itself is supplied by the
+// simulator (e.g. VCS -ntb_opts uvm-1.2), not listed here.
+//
+// This is consumed ONLY by the *-uvm Makefile targets. The Verilator flow uses
+// testbench/flist + tb_top and never sees this file, keeping the open-source
+// build byte-for-byte unchanged.
+//
+// +define+UVM is added on the command line by the Makefile target (so every
+// `ifdef UVM-guarded block compiles in), along with the design defines.
+
+// ---- RTL + bridge + JTAG DPI (reuse the existing design file list) ----
+-f $RV_ROOT/testbench/flist
+
+// ---- UVM env include search paths ----
++incdir+$RV_ROOT/verif/uvm/if
++incdir+$RV_ROOT/verif/uvm/env
++incdir+$RV_ROOT/verif/uvm/tests
++incdir+$RV_ROOT/verif/uvm/seq
++incdir+$RV_ROOT/verif/uvm/cov
++incdir+$RV_ROOT/verif/uvm/agents/axi4_slave
++incdir+$RV_ROOT/verif/uvm/agents/axi4_master
+
+// ---- DV interfaces ----
+$RV_ROOT/verif/uvm/if/axi4_if.sv
+$RV_ROOT/verif/uvm/if/clk_en_if.sv
+$RV_ROOT/verif/uvm/if/veer_eot_if.sv
+
+// ---- UVM package (pulls in cfg / env / tests via the include dirs above) ----
+$RV_ROOT/verif/uvm/env/veer_bus_pkg.sv
+
+// ---- Static RTL bus slaves (axi_slv) reused for Phase 0 ----
+$RV_ROOT/testbench/ahb_sif.sv
+
+// ---- DPI-C wallclock helper (performance report) ----
+$RV_ROOT/verif/uvm/tb/uvm_perf_dpi.c
+
+// ---- UVM top ----
+$RV_ROOT/verif/uvm/tb/tb_uvm_top.sv
