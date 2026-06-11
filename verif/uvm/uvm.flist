@@ -35,5 +35,8 @@ $RV_ROOT/verif/uvm/env/veer_bus_pkg.sv
 // ---- Static RTL bus slaves (axi_slv) reused for Phase 0 ----
 $RV_ROOT/testbench/ahb_sif.sv
 
+// ---- DPI-C wallclock helper (performance report) ----
+$RV_ROOT/verif/uvm/tb/uvm_perf_dpi.c
+
 // ---- UVM top ----
 $RV_ROOT/verif/uvm/tb/tb_uvm_top.sv

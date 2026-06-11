@@ -45,6 +45,22 @@ module tb_uvm_top;
 `include "uvm_macros.svh"
 `endif
 
+    // DPI-C wallclock helper for the end-of-run performance report.
+    import "DPI-C" function real sv_wall_time_sec();
+    real perf_wall_start = 0.0;   // wallclock at sim start (seconds)
+    real perf_compile_sec = -1.0; // compile wallclock from compile_time.txt
+
+    // Capture sim-start wallclock and the compile time the Makefile recorded.
+    initial begin
+        integer cf;
+        perf_wall_start = sv_wall_time_sec();
+        cf = $fopen("compile_time.txt", "r");
+        if (cf != 0) begin
+            void'($fscanf(cf, "%f", perf_compile_sec));
+            $fclose(cf);
+        end
+    end
+
     bit                         core_clk;
     logic                       rst_l;
     logic                       porst_l;
@@ -1468,5 +1484,22 @@ endfunction
 /* verilator lint_on CASEINCOMPLETE */
 
 
+// End-of-run performance report (prints once at $finish, however the run ends).
+final begin
+    real wall_end, sim_wall, sim_ns, freq_khz;
+    wall_end = sv_wall_time_sec();
+    sim_wall = wall_end - perf_wall_start;
+    sim_ns   = $realtime;                                  // ns (1ns timescale)
+    freq_khz = (sim_wall > 0.0) ? (real'(cycleCnt) / sim_wall / 1000.0) : 0.0;
+    $display("================= Performance =================");
+    if (perf_compile_sec >= 0.0)
+        $display("  Compilation wallclock : %0.3f s", perf_compile_sec);
+    else
+        $display("  Compilation wallclock : n/a (compile_time.txt not found)");
+    $display("  Simulation wallclock  : %0.3f s", sim_wall);
+    $display("  Simulated time        : %0.0f ns  (%0d clk cycles)", sim_ns, cycleCnt);
+    $display("  Simulation speed      : %0.3f kHz (sim clk cycles / wallclock s)", freq_khz);
+    $display("===============================================");
+end
 
 endmodule
