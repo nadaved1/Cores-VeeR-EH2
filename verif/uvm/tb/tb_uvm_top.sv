@@ -1221,6 +1221,7 @@ axi_lsu_dma_bridge # (`RV_LSU_BUS_TAG,`RV_LSU_BUS_TAG ) bridge(
     // so the env only makes the DMA agent active when it really owns the port.
     initial uvm_config_db#(int)::set(null, "*", "dma_uvm_master", 1);
 `endif
+`endif // RV_BUILD_AXI4 (UVM interface wiring)
 
     // Bus clock-enable strobes (tied to 1'b1 at the DUT today; observed here).
     clk_en_if cken_if (.clk(core_clk), .rst_l(rst_l));
