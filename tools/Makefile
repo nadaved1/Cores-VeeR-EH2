@@ -19,7 +19,7 @@ CONF_PARAMS = -set=build_axi4
 
 TEST_CFLAGS = -g -O3 -funroll-all-loops 
 
-ABI = -mabi=ilp32 -march=rv32imac
+ABI = -mabi=ilp32 -march=rv32imac_zicsr
 
 
 
@@ -42,9 +42,22 @@ VERILATOR = verilator
 # Verilator >= 5.x, which promotes the #delay in SimJTAG.v to a fatal error.
 VERILATOR_WARN = -Wno-WIDTH -Wno-UNOPTFLAT -Wno-IMPLICIT -Wno-STMTDLY
 RIVIERA = riviera
-GCC_PREFIX = riscv64-unknown-elf
+GCC_PREFIX = riscv-none-elf
 BUILD_DIR = snapshots/${snapshot}
 TBDIR = ${RV_ROOT}/testbench
+
+# UVM bus/SoC integration environment (commercial simulators only). These are
+# additive: they use verif/uvm/uvm.flist + tb_uvm_top and never touch the
+# Verilator flow (testbench/flist + tb_top). UVM is supplied by the simulator.
+UVM_DIR  = ${RV_ROOT}/verif/uvm
+UVM_TEST = veer_bus_smoke_test
+UVM_VERB = UVM_MEDIUM
+# Extra defines for the UVM build, e.g. UVM_DEFINES=+define+DMA_UVM_MASTER to let
+# the UVM DMA master own the DMA port (required by the dma/stress tests).
+UVM_DEFINES =
+# Vendor UVM library tags; override if your install differs.
+VCS_UVM_OPTS  = -ntb_opts uvm-1.2
+XRUN_UVM_OPTS = -uvm -uvmhome CDNS-1.2
 
 
 
@@ -108,7 +121,8 @@ clean:
 	rm -rf *.log *.s *.hex *.dis *.tbl irun* vcs* simv* snapshots veer* \
 	verilator* *.map *.exe obj* *.o ucli.key vc_hdrs.h csrc *.csv \
 	work dataset.asdb  library.cfg vsimsa.cfg  riviera-build wave.asdb \
-	SimJTAG.so .program_hex_test
+	SimJTAG.so .program_hex_test \
+	work_uvm xcelium.d xrun.history xrun.key *-uvm-build cov_work urgReport
 
 
 
@@ -153,6 +167,39 @@ riviera-build: ${TBFILES} ${BUILD_DIR}/defines.h ${RV_ROOT}/testbench/flist.rivi
 		-f ${RV_ROOT}/testbench/flist.riviera \
 		${TBFILES}
 	touch riviera-build
+
+################## UVM bus/SoC integration Builds #############################
+
+# VCS: compile the UVM env + tb_uvm_top into ./simv_uvm (separate from ./simv so
+# the directed vcs flow and the UVM flow can coexist).
+vcs-uvm-build: ${BUILD_DIR}/defines.h
+	$(VCS) -full64 -assert svaext -sverilog $(VCS_UVM_OPTS) \
+	  +define+UVM $(UVM_DEFINES) +error+500 $(defines) +incdir+$(BUILD_DIR) \
+	  -f ${UVM_DIR}/uvm.flist -top tb_uvm_top -o simv_uvm -l vcs_uvm.log
+	touch vcs-uvm-build
+
+#################### UVM Simulation Run ###############################
+
+# VCS UVM run. Example:
+#   make -f tools/Makefile vcs-uvm UVM_TEST=veer_bus_smoke_test
+vcs-uvm: program.hex vcs-uvm-build
+	./simv_uvm +UVM_TESTNAME=$(UVM_TEST) +UVM_VERBOSITY=$(UVM_VERB) \
+	  $(DEBUG_PLUS) +vcs+lic+wait -l sim_uvm.log $(run_arg)
+
+# Xcelium UVM run (single-step elaborate + run).
+xrun-uvm: program.hex ${BUILD_DIR}/defines.h
+	$(IRUN) -64bit +lic_queue -licqueue -q -sv -sysv $(XRUN_UVM_OPTS) \
+	  -nowarn CUVIHR +define+UVM $(UVM_DEFINES) -vlog_ext +.vh+.h $(defines) +incdir+$(BUILD_DIR) \
+	  -f ${UVM_DIR}/uvm.flist -top tb_uvm_top \
+	  +UVM_TESTNAME=$(UVM_TEST) +UVM_VERBOSITY=$(UVM_VERB) $(run_arg) -l xrun_uvm.log
+
+# Questa UVM run. Assumes a Questa install with bundled UVM (-mfcu).
+questa-uvm: program.hex ${BUILD_DIR}/defines.h
+	vlib work_uvm
+	vlog -work work_uvm -sv -mfcu +define+UVM $(UVM_DEFINES) +incdir+${BUILD_DIR} \
+	  $(defines) -f ${UVM_DIR}/uvm.flist -l vlog_uvm.log
+	vsim -c -lib work_uvm tb_uvm_top +UVM_TESTNAME=$(UVM_TEST) \
+	  +UVM_VERBOSITY=$(UVM_VERB) -do "run -all; quit" -l questa_uvm.log
 
 #################### TEST Simulation Run ###############################
 
@@ -208,7 +255,7 @@ program.hex: $(OFILES) $(LINK)
 
 
 %.o : %.c ${BUILD_DIR}/defines.h
-	$(GCC_PREFIX)-gcc ${includes} ${TEST_CFLAGS} -DCOMPILER_FLAGS="\"${TEST_CFLAGS}\"" ${ABI}  -c $< -o $@
+	$(GCC_PREFIX)-gcc ${includes} ${TEST_CFLAGS} -DCOMPILER_FLAGS="\"${TEST_CFLAGS}\"" ${ABI} -std=gnu17 -c $< -o $@
 
 endif
 endif
@@ -217,6 +264,7 @@ endif
 help:
 	@echo Make sure the environment variable RV_ROOT is set.
 	@echo Possible targets: verilator vcs irun vlog riviera help clean all verilator-build irun-build vcs-build riviera-build program.hex
+	@echo UVM bus/SoC integration targets: vcs-uvm vcs-uvm-build xrun-uvm questa-uvm "(set UVM_TEST=<test>)"
 
 FORCE: ;
-.PHONY: help clean verilator vcs irun vlog riviera FORCE
+.PHONY: help clean verilator vcs irun vlog riviera vcs-uvm xrun-uvm questa-uvm FORCE
