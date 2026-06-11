@@ -54,12 +54,13 @@ class veer_bus_base_test extends uvm_test;
   task run_phase(uvm_phase phase);
     phase.raise_objection(this, "running program.hex");
     `uvm_info(get_type_name(), "waiting for program end-of-test signal", UVM_LOW)
-    // Derived tests drive concurrent bus traffic here (e.g. DMA). It is killed
-    // when the program signals end-of-test below.
+    // Wait for BOTH the program to finish AND any background bus stimulus to
+    // complete, so DMA/stress traffic is not truncated when a short program
+    // (e.g. hello_world) signals end-of-test early. stimulus() must be bounded.
     fork
+      wait (eot_vif.seen == 1'b1);
       stimulus();
-    join_none
-    wait (eot_vif.seen == 1'b1);
+    join
     if (eot_vif.pass)
       `uvm_info(get_type_name(), "program signalled TEST_PASSED", UVM_LOW)
     else

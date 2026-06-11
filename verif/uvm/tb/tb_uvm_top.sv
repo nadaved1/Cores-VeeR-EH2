@@ -389,9 +389,18 @@ module tb_uvm_top;
     parameter MAX_CYCLES = 10_000_000;
 
     integer fd, tp, el;
+    bit     mbox_d;   // previous-cycle mailbox_write, for rising-edge detection
 
     always @(negedge core_clk) begin
+        bit mbox_re;
         cycleCnt <= cycleCnt+1;
+        // One pulse per mailbox write transaction. The slave wait-state policy
+        // (stress test) can hold the write valid asserted for several cycles
+        // until it grants AWREADY, so detect the rising edge rather than the
+        // level — otherwise each console char is printed (and each end-of-test
+        // byte handled) once per held cycle.
+        mbox_d  <= mailbox_write;
+        mbox_re  = mailbox_write & ~mbox_d;
         // Test timeout monitor. $finish here is the hard backstop for a hung
         // run; it also flags the UVM test (eot) so the report still fires when
         // the program completes normally below.
@@ -402,14 +411,14 @@ module tb_uvm_top;
             $finish;
         end
         // console Monitor
-        if( mailbox_data_val & mailbox_write) begin
+        if( mailbox_data_val & mbox_re) begin
             $fwrite(fd,"%c", WriteData[7:0]);
             $write("%c", WriteData[7:0]);
         end
         // End Of test monitor. Unlike tb_top, we do NOT $finish here: we hand
         // off to the UVM test via veer_eot_if so run_phase ends cleanly and a
         // full UVM report (incl. scoreboard verdict in later phases) prints.
-        if(mailbox_write && WriteData[7:0] == 8'hff) begin
+        if(mbox_re && WriteData[7:0] == 8'hff) begin
             $display("TEST_PASSED");
             $display("\nFinished hart0 : minstret = %0d, mcycle = %0d", minstret[0],mcycle[0]);
             if(`RV_NUM_THREADS == 2)
@@ -418,7 +427,7 @@ module tb_uvm_top;
             eot.pass <= 1'b1;
             eot.seen <= 1'b1;
         end
-        else if(mailbox_write && WriteData[7:0] == 8'h1) begin
+        else if(mbox_re && WriteData[7:0] == 8'h1) begin
             $display("TEST_FAILED");
             eot.pass <= 1'b0;
             eot.seen <= 1'b1;

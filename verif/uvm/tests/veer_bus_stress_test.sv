@@ -43,23 +43,27 @@ class veer_bus_stress_test extends veer_bus_base_test;
     // Handshake-respecting slave responders with wait states.
     cfg.slave_policy_enable = 1'b1;
     cfg.slave_max_wait      = 4;
+    // More DMA traffic for the stress run.
+    cfg.dma_total_txns      = 256;
   endfunction
 
   virtual task stimulus();
+    veer_bus_dma_vseq vseq;
     if (env.vseqr.dma_seqr == null) begin
       `uvm_info(get_type_name(),
         "DMA master inactive (build without DMA_UVM_MASTER); slave wait-state stress only",
         UVM_LOW)
       return;
     end
-    forever begin
-      veer_bus_dma_vseq vseq = veer_bus_dma_vseq::type_id::create("dma_stress_vseq");
-      vseq.stress    = 1'b1;
-      vseq.base_addr = cfg.dma_base;
-      vseq.window    = cfg.dma_window;
-      vseq.num_txns  = 32;
-      vseq.start(env.vseqr);
-    end
+    vseq = veer_bus_dma_vseq::type_id::create("dma_stress_vseq");
+    vseq.stress    = 1'b1;
+    vseq.base_addr = cfg.dma_base;
+    vseq.window    = cfg.dma_window;
+    vseq.num_txns  = cfg.dma_total_txns;
+    `uvm_info(get_type_name(),
+      $sformatf("issuing %0d back-pressured DMA pairs under slave wait-states",
+                cfg.dma_total_txns), UVM_LOW)
+    vseq.start(env.vseqr);
   endtask
 
 endclass

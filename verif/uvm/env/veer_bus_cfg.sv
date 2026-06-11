@@ -46,6 +46,11 @@ class veer_bus_cfg extends uvm_object;
   bit [31:0] dma_base   = `RV_DCCM_SADR;
   bit [31:0] dma_window = 32'h400;
 
+  // Total DMA write/read-back pairs the dma/stress tests issue per run. The run
+  // continues until both the program finishes and these complete, so packet
+  // count is deterministic regardless of program length.
+  int unsigned dma_total_txns = 64;
+
   `uvm_object_utils_begin(veer_bus_cfg)
     `uvm_field_enum(uvm_active_passive_enum, ifu_slave_active, UVM_DEFAULT)
     `uvm_field_enum(uvm_active_passive_enum, lsu_slave_active, UVM_DEFAULT)
@@ -56,6 +61,7 @@ class veer_bus_cfg extends uvm_object;
     `uvm_field_int(slave_max_wait,      UVM_DEFAULT)
     `uvm_field_int(dma_base,            UVM_DEFAULT)
     `uvm_field_int(dma_window,          UVM_DEFAULT)
+    `uvm_field_int(dma_total_txns,      UVM_DEFAULT)
   `uvm_object_utils_end
 
   function new(string name = "veer_bus_cfg");

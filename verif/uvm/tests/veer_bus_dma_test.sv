@@ -38,21 +38,23 @@ class veer_bus_dma_test extends veer_bus_base_test;
   endfunction
 
   virtual task stimulus();
+    veer_bus_dma_vseq vseq;
     if (env.vseqr.dma_seqr == null) begin
       `uvm_info(get_type_name(),
         "DMA master inactive (build without DMA_UVM_MASTER); no DMA stimulus",
         UVM_LOW)
       return;
     end
-    // Keep issuing DMA write/read-back bursts until end-of-test.
-    forever begin
-      veer_bus_dma_vseq vseq = veer_bus_dma_vseq::type_id::create("dma_vseq");
-      vseq.stress    = 1'b0;
-      vseq.base_addr = cfg.dma_base;
-      vseq.window    = cfg.dma_window;
-      vseq.num_txns  = 16;
-      vseq.start(env.vseqr);
-    end
+    // Issue a bounded, deterministic number of DMA write/read-back pairs. The
+    // run holds until these finish even if the program ends first.
+    vseq = veer_bus_dma_vseq::type_id::create("dma_vseq");
+    vseq.stress    = 1'b0;
+    vseq.base_addr = cfg.dma_base;
+    vseq.window    = cfg.dma_window;
+    vseq.num_txns  = cfg.dma_total_txns;
+    `uvm_info(get_type_name(),
+      $sformatf("issuing %0d DMA write/read-back pairs", cfg.dma_total_txns), UVM_LOW)
+    vseq.start(env.vseqr);
   endtask
 
 endclass
