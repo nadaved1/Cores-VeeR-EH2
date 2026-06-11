@@ -51,6 +51,16 @@ class veer_bus_base_test extends uvm_test;
     // Base: leave defaults (all agents passive; static RTL slaves serve the bus).
   endfunction
 
+  // Print the full UVM component topology at the start of every test, after the
+  // env is fully built and connected. uvm_top.print_topology() walks the whole
+  // hierarchy (agents, drivers, monitors, scoreboard, sequencers, coverage).
+  function void end_of_elaboration_phase(uvm_phase phase);
+    super.end_of_elaboration_phase(phase);
+    `uvm_info(get_type_name(),
+      $sformatf("UVM topology for test '%s':", get_type_name()), UVM_LOW)
+    uvm_top.print_topology();
+  endfunction
+
   task run_phase(uvm_phase phase);
     phase.raise_objection(this, "running program.hex");
     `uvm_info(get_type_name(), "waiting for program end-of-test signal", UVM_LOW)
