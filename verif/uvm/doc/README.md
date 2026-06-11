@@ -40,27 +40,74 @@ objection cleanly and a full UVM report is printed.
 `tb_uvm_top` redefines the `TOP` / `RV_TOP` / `CPU_TOP` hierarchy macros (baked
 to `tb_top.*` in `snapshots/<cfg>/common_defines.vh`) to point at `tb_uvm_top`.
 
-## Running (Phase 0)
+## Running the tests
 
-From the repo root, with `RV_ROOT` set and a config snapshot generated
-(`make -f tools/Makefile ${BUILD_DIR}/defines.h`, done automatically):
+Prerequisites: a commercial simulator on `PATH` (VCS by default), the RISC-V
+toolchain (or the canned `testbench/hex/*.hex` fallback), and `RV_ROOT` pointing
+at the repo root. Config-snapshot and `program.hex` generation happen
+automatically as Makefile prerequisites.
 
+Run from the repo root. Build artifacts (the snapshot, `program.hex`, logs,
+`simv_uvm`, `compile_time.txt`) land in the make working directory, so a scratch
+dir such as `run/` (via `-C run/`) keeps the tree clean:
+
+```sh
+# General form (VCS):
+RV_ROOT=$PWD make vcs-uvm -f $PWD/tools/Makefile \
+    UVM_TEST=<test> [UVM_DEFINES=+define+DMA_UVM_MASTER] [options] -C run/
 ```
-# VCS
-make -f tools/Makefile vcs-uvm UVM_TEST=veer_bus_smoke_test
 
-# Xcelium
-make -f tools/Makefile xrun-uvm UVM_TEST=veer_bus_smoke_test
+### The three tests
 
-# Questa
-make -f tools/Makefile questa-uvm UVM_TEST=veer_bus_smoke_test
+```sh
+# Phase 1 — smoke: program served entirely by the UVM slave responders.
+RV_ROOT=$PWD make vcs-uvm -f $PWD/tools/Makefile \
+    UVM_TEST=veer_bus_smoke_test -C run/
+
+# Phase 2 — DMA: UVM DMA master drives write/read-back traffic; scoreboard checks
+# consistency. Needs DMA_UVM_MASTER so the UVM master (not the RTL loopback) owns
+# the DMA port.
+RV_ROOT=$PWD make vcs-uvm -f $PWD/tools/Makefile \
+    UVM_TEST=veer_bus_dma_test UVM_DEFINES=+define+DMA_UVM_MASTER -C run/
+
+# Phase 3 — stress: slave wait-states + back-pressured DMA bursts + coverage.
+RV_ROOT=$PWD make vcs-uvm -f $PWD/tools/Makefile \
+    UVM_TEST=veer_bus_stress_test UVM_DEFINES=+define+DMA_UVM_MASTER \
+    run_arg="+ntb_random_seed=7" -C run/
 ```
 
-Override the program with `TEST=<name>` (same mechanism as the Verilator flow),
-e.g. `make -f tools/Makefile vcs-uvm TEST=dhry`.
+Xcelium / Questa: swap the target for `xrun-uvm` / `questa-uvm` (same variables).
+
+### Options
+
+| Variable        | Purpose                                                        | Default               |
+|-----------------|----------------------------------------------------------------|-----------------------|
+| `UVM_TEST`      | `+UVM_TESTNAME` (smoke / dma / stress)                         | `veer_bus_smoke_test` |
+| `UVM_DEFINES`   | extra compile defines; use `+define+DMA_UVM_MASTER` for dma/stress | (empty)           |
+| `UVM_VERB`      | `+UVM_VERBOSITY`                                               | `UVM_MEDIUM`          |
+| `TEST`          | program to run (asm/C test or canned hex)                     | `hello_world`         |
+| `run_arg`       | extra run-time plusargs, e.g. `+ntb_random_seed=N`            | (empty)               |
+| `debug=1`       | enable waveform dump                                           | off                   |
+
+`vcs-uvm-build` compiles into `./simv_uvm` (separate from the directed flow's
+`./simv`), so rebuild after any define change (e.g. adding `DMA_UVM_MASTER`).
+
+### Output
+
+Each run ends with a performance report:
+
+```text
+================= Performance =================
+  Compilation wallclock : 42 s
+  Simulation wallclock  : 3.250 s
+  Simulated time        : 18750 ns  (1875 clk cycles)
+  Simulation speed      : 0.577 kHz (sim clk cycles / wallclock s)
+===============================================
+```
 
 **Pass criteria:** the program prints `TEST_PASSED` (mailbox) **and** UVM prints
-a clean report (no `UVM_ERROR` / `UVM_FATAL`).
+a clean report (no `UVM_ERROR` / `UVM_FATAL`; for dma/stress, scoreboard
+mismatches = 0).
 
 > Note: the `verilator-build` recipe appends `` `undef RV_ASSERT_ON `` to the
 > snapshot's `common_defines.vh`, which disables SVA. If you want assertions
