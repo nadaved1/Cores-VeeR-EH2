@@ -173,7 +173,7 @@ riviera-build: ${TBFILES} ${BUILD_DIR}/defines.h ${RV_ROOT}/testbench/flist.rivi
 # VCS: compile the UVM env + tb_uvm_top into ./simv_uvm (separate from ./simv so
 # the directed vcs flow and the UVM flow can coexist).
 vcs-uvm-build: ${BUILD_DIR}/defines.h
-	$(VCS) -full64 -assert svaext -sverilog $(VCS_UVM_OPTS) \
+	$(VCS) -full64 -assert svaext -sverilog $(VCS_UVM_OPTS) -timescale=1ns/1ps \
 	  +define+UVM $(UVM_DEFINES) +error+500 $(defines) +incdir+$(BUILD_DIR) \
 	  -f ${UVM_DIR}/uvm.flist -top tb_uvm_top -o simv_uvm -l vcs_uvm.log
 	touch vcs-uvm-build
@@ -184,11 +184,11 @@ vcs-uvm-build: ${BUILD_DIR}/defines.h
 #   make -f tools/Makefile vcs-uvm UVM_TEST=veer_bus_smoke_test
 vcs-uvm: program.hex vcs-uvm-build
 	./simv_uvm +UVM_TESTNAME=$(UVM_TEST) +UVM_VERBOSITY=$(UVM_VERB) \
-	  $(DEBUG_PLUS) +vcs+lic+wait -l sim_uvm.log $(run_arg)
+	  $(DEBUG_PLUS) +vcs+lic+wait -l sim_uvm.log $(run_arg) +UVM_NO_RELNOTES -suppress=ASLR_DETECTED_INFO
 
 # Xcelium UVM run (single-step elaborate + run).
 xrun-uvm: program.hex ${BUILD_DIR}/defines.h
-	$(IRUN) -64bit +lic_queue -licqueue -q -sv -sysv $(XRUN_UVM_OPTS) \
+	$(IRUN) -64bit +lic_queue -licqueue -q -sv -sysv $(XRUN_UVM_OPTS) -timescale 1ns/1ps \
 	  -nowarn CUVIHR +define+UVM $(UVM_DEFINES) -vlog_ext +.vh+.h $(defines) +incdir+$(BUILD_DIR) \
 	  -f ${UVM_DIR}/uvm.flist -top tb_uvm_top \
 	  +UVM_TESTNAME=$(UVM_TEST) +UVM_VERBOSITY=$(UVM_VERB) $(run_arg) -l xrun_uvm.log
@@ -196,7 +196,7 @@ xrun-uvm: program.hex ${BUILD_DIR}/defines.h
 # Questa UVM run. Assumes a Questa install with bundled UVM (-mfcu).
 questa-uvm: program.hex ${BUILD_DIR}/defines.h
 	vlib work_uvm
-	vlog -work work_uvm -sv -mfcu +define+UVM $(UVM_DEFINES) +incdir+${BUILD_DIR} \
+	vlog -work work_uvm -sv -mfcu -timescale=1ns/1ps +define+UVM $(UVM_DEFINES) +incdir+${BUILD_DIR} \
 	  $(defines) -f ${UVM_DIR}/uvm.flist -l vlog_uvm.log
 	vsim -c -lib work_uvm tb_uvm_top +UVM_TESTNAME=$(UVM_TEST) \
 	  +UVM_VERBOSITY=$(UVM_VERB) -do "run -all; quit" -l questa_uvm.log
