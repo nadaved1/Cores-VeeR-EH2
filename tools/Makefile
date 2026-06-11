@@ -122,6 +122,7 @@ clean:
 	verilator* *.map *.exe obj* *.o ucli.key vc_hdrs.h csrc *.csv \
 	work dataset.asdb  library.cfg vsimsa.cfg  riviera-build wave.asdb \
 	SimJTAG.so .program_hex_test \
+	run/* \
 	work_uvm xcelium.d xrun.history xrun.key *-uvm-build cov_work urgReport compile_time.txt
 
 
