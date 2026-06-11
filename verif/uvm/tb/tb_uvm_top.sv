@@ -389,7 +389,8 @@ module tb_uvm_top;
     parameter MAX_CYCLES = 10_000_000;
 
     integer fd, tp, el;
-    bit     mbox_d;   // previous-cycle mailbox_write, for rising-edge detection
+    bit     mbox_d;       // previous-cycle mailbox_write, for rising-edge detection
+    bit     eot_latched;  // end-of-test handled once (program may re-write the byte)
 
     always @(negedge core_clk) begin
         bit mbox_re;
@@ -418,7 +419,12 @@ module tb_uvm_top;
         // End Of test monitor. Unlike tb_top, we do NOT $finish here: we hand
         // off to the UVM test via veer_eot_if so run_phase ends cleanly and a
         // full UVM report (incl. scoreboard verdict in later phases) prints.
-        if(mbox_re && WriteData[7:0] == 8'hff) begin
+        // Handle end-of-test once. The program may keep re-writing the mailbox
+        // byte in its post-pass loop; the original tb_top hid this by $finish-ing
+        // on the first write, but the UVM run keeps going (to let DMA finish),
+        // so latch it to avoid repeated TEST_PASSED prints.
+        if(mbox_re && !eot_latched && WriteData[7:0] == 8'hff) begin
+            eot_latched = 1'b1;
             $display("TEST_PASSED");
             $display("\nFinished hart0 : minstret = %0d, mcycle = %0d", minstret[0],mcycle[0]);
             if(`RV_NUM_THREADS == 2)
@@ -427,7 +433,8 @@ module tb_uvm_top;
             eot.pass <= 1'b1;
             eot.seen <= 1'b1;
         end
-        else if(mbox_re && WriteData[7:0] == 8'h1) begin
+        else if(mbox_re && !eot_latched && WriteData[7:0] == 8'h1) begin
+            eot_latched = 1'b1;
             $display("TEST_FAILED");
             eot.pass <= 1'b0;
             eot.seen <= 1'b1;
