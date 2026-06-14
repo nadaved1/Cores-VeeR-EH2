@@ -77,7 +77,7 @@ class axi4_master_base_seq extends uvm_sequence #(axi4_master_seq_item);
 endclass
 
 
-// Plain write/read-back traffic, single- and multi-beat, no back-pressure.
+// Plain single-beat write/read-back traffic, no back-pressure.
 class dma_write_read_seq extends axi4_master_base_seq;
   `uvm_object_utils(dma_write_read_seq)
 
@@ -86,11 +86,12 @@ class dma_write_read_seq extends axi4_master_base_seq;
   endfunction
 
   task body();
-    bit [7:0] lens[] = '{0, 1, 3, 7};
+    // The core's DMA slave port is single-beat: it captures one address+data
+    // pair and hardwires rlast=1 (no AXI bursts, no awlen/arlen). So every
+    // transfer is a single 64-bit beat (len=0); we vary the address instead.
     for (int unsigned i = 0; i < num_txns; i++) begin
-      bit [7:0]  len  = lens[$urandom % lens.size()];
-      bit [31:0] addr = pick_addr(len);
-      wr_rd_pair(addr, len, 3'd3);   // 64-bit beats
+      bit [31:0] addr = pick_addr(8'd0);
+      wr_rd_pair(addr, 8'd0, 3'd3);   // single 64-bit beat
       if ((i % 32) == 0)
         `uvm_info(get_type_name(),
           $sformatf("DMA write/read pair %0d/%0d", i + 1, num_txns), UVM_LOW)
@@ -99,7 +100,7 @@ class dma_write_read_seq extends axi4_master_base_seq;
 endclass
 
 
-// Stress variant: enables RREADY/BREADY back-pressure and longer bursts.
+// Stress variant: enables RREADY/BREADY back-pressure (single-beat transfers).
 class dma_stress_seq extends axi4_master_base_seq;
   `uvm_object_utils(dma_stress_seq)
 
@@ -113,11 +114,12 @@ class dma_stress_seq extends axi4_master_base_seq;
   endfunction
 
   task body();
-    bit [7:0] lens[] = '{1, 3, 7};
+    // Single-beat only (see dma_write_read_seq): the DMA slave port does not
+    // support bursts. Stress comes from RREADY/BREADY back-pressure and the
+    // slave-side wait states, not from burst length.
     for (int unsigned i = 0; i < num_txns; i++) begin
-      bit [7:0]  len  = lens[$urandom % lens.size()];
-      bit [31:0] addr = pick_addr(len);
-      wr_rd_pair(addr, len, 3'd3);
+      bit [31:0] addr = pick_addr(8'd0);
+      wr_rd_pair(addr, 8'd0, 3'd3);
       if ((i % 32) == 0)
         `uvm_info(get_type_name(),
           $sformatf("DMA stress pair %0d/%0d (back-pressured)", i + 1, num_txns),
