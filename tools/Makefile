@@ -170,8 +170,11 @@ vcs-build: ${TBFILES} ${BUILD_DIR}/defines.h
 	  -f ${RV_ROOT}/testbench/flist ${TBFILES} $(PERF_DPI) -l vcs.log
 	touch vcs-build
 
+# -messages makes xmelab print the design hierarchy summary (instance/unique
+# module counts, registers, always/initial blocks) at elaboration.
 xrun-build: ${TBFILES} ${BUILD_DIR}/defines.h
 	$(XRUN) -64bit -elaborate $(XRUN_DEBUG) -q -sv -sysv  -nowarn CUVIHR \
+	  -messages \
 	  -vlog_ext +.vh+.h $(defines) +incdir+$(BUILD_DIR) \
 	  -f ${RV_ROOT}/testbench/flist -top tb_top  ${TBFILES} $(PERF_DPI) \
 	  -elaborate  -snapshot ${snapshot} $(profile)
@@ -218,6 +221,7 @@ vcs-uvm: program.hex vcs-uvm-build
 xrun-uvm-build: ${BUILD_DIR}/defines.h
 	@t0=$$(date +%s); \
 	$(XRUN) -64bit +lic_queue -licqueue -q -sv -sysv $(XRUN_UVM_OPTS) -timescale 1ns/1ps \
+	  -messages \
 	  -nowarn CUVIHR +define+UVM $(UVM_DEFINES) -vlog_ext +.vh+.h $(defines) $(ASSERT_OFF_FILE) \
 	  +incdir+$(BUILD_DIR) -f ${UVM_DIR}/uvm.flist -top tb_uvm_top $(XRUN_DEBUG) -elaborate -plusperf \
 	  -l xrun_uvm_build.log; \
