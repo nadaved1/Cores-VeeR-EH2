@@ -42,10 +42,12 @@ to `tb_top.*` in `snapshots/<cfg>/common_defines.vh`) to point at `tb_uvm_top`.
 
 ## Running the tests
 
-Prerequisites: a commercial simulator on `PATH` (VCS by default), the RISC-V
-toolchain (or the canned `testbench/hex/*.hex` fallback), and `RV_ROOT` pointing
-at the repo root. Config-snapshot and `program.hex` generation happen
-automatically as Makefile prerequisites.
+Prerequisites: a commercial simulator on `PATH` (VCS by default) and the RISC-V
+toolchain (or the canned `testbench/hex/*.hex` fallback). `RV_ROOT` defaults to
+the repo root (derived from the Makefile path), so it need not be set; export it
+only to override. Config-snapshot and `program.hex` generation happen
+automatically as Makefile prerequisites. The `run/` scratch dir is tracked, so
+`-C run/` needs no `mkdir`.
 
 Run from the repo root. Build artifacts (the snapshot, `program.hex`, logs,
 `simv_uvm`, `compile_time.txt`) land in the make working directory, so a scratch

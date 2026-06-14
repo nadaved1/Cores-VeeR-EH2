@@ -68,6 +68,10 @@ int main(int argc, char** argv) {
   tfp->close();
 #endif
 
+  // Run SystemVerilog `final` blocks (e.g. tb_top's end-of-run performance
+  // report). Verilator does not execute them automatically on $finish.
+  tb->final();
+
   std::cout << "\nVerilatorTB: End of sim" << std::endl;
   exit(EXIT_SUCCESS);
 

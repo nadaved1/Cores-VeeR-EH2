@@ -83,6 +83,12 @@ module tb_top;
     bit        [31:0]           cycleCnt;
     logic                       mailbox_data_val;
 
+    // DPI-C wallclock helper for the end-of-run performance report (sim time +
+    // simulation speed), mirroring the UVM tb_uvm_top report.
+    import "DPI-C" function real sv_wall_time_sec();
+    real                        perf_wall_start = 0.0;   // wallclock at sim start (s)
+    initial perf_wall_start = sv_wall_time_sec();
+
     wire                        dma_hready_out;
     int                         commit_count[2];
 
@@ -1236,5 +1242,19 @@ endfunction
 /* verilator lint_on CASEINCOMPLETE */
 
 
+// End-of-run performance report (prints once at $finish, however the run ends).
+// Simulation speed is wallclock-based, so it is meaningful on every flow
+// (verilator / vcs / xrun); the simulated-time line uses the sim's timeformat.
+final begin
+    real wall_end, sim_wall, freq_khz;
+    wall_end = sv_wall_time_sec();
+    sim_wall = wall_end - perf_wall_start;
+    freq_khz = (sim_wall > 0.0) ? (real'(cycleCnt) / sim_wall / 1000.0) : 0.0;
+    $display("================= Performance =================");
+    $display("  Simulation wallclock  : %0.3f s", sim_wall);
+    $display("  Simulated time        : %0t  (%0d clk cycles)", $realtime, cycleCnt);
+    $display("  Simulation speed      : %0.3f kHz (clk cycles / wallclock s)", freq_khz);
+    $display("===============================================");
+end
 
 endmodule
