@@ -17,7 +17,9 @@
 // veer_bus_stress_test : Phase 3. Runs the program under adversarial bus
 // conditions — the IFU/LSU slave responders insert randomized wait states
 // (handshake-respecting policy mode) and the DMA master hammers the DMA port
-// with back-pressured bursts. Functional coverage is enabled. Multi-seed:
+// with back-pressured single-beat traffic (the DMA slave port is single-beat;
+// stress comes from RREADY/BREADY back-pressure, not burst length).
+// Functional coverage is enabled. Multi-seed:
 //   make -f tools/Makefile vcs-uvm UVM_TEST=veer_bus_stress_test \
 //        UVM_DEFINES=+define+DMA_UVM_MASTER run_arg="+ntb_random_seed=<N>"
 //

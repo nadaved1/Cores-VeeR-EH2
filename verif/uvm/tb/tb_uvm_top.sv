@@ -387,6 +387,10 @@ module tb_uvm_top;
 
 
     parameter MAX_CYCLES = 10_000_000;
+    // Print a liveness heartbeat every HEARTBEAT_CYCLES core clocks so a long,
+    // console-silent run (e.g. the stress test grinding through DMA traffic)
+    // visibly shows it is still advancing rather than looking hung.
+    parameter HEARTBEAT_CYCLES = 100_000;
 
     integer fd, tp, el;
     bit     mbox_d;       // previous-cycle mailbox_write, for rising-edge detection
@@ -411,6 +415,9 @@ module tb_uvm_top;
             eot.seen <= 1'b1;
             $finish;
         end
+        // Liveness heartbeat (skip cycle 0 and the end-of-test cycle).
+        if(cycleCnt != 0 && (cycleCnt % HEARTBEAT_CYCLES) == 0 && !eot_latched)
+            $display("[heartbeat] %0d cycles elapsed (sim time %0t)", cycleCnt, $time);
         // console Monitor
         if( mailbox_data_val & mbox_re) begin
             $fwrite(fd,"%c", WriteData[7:0]);

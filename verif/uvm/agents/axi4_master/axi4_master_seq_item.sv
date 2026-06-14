@@ -46,10 +46,20 @@ class axi4_master_seq_item extends uvm_sequence_item;
   constraint c_len   { len inside {0, 1, 3, 7}; }   // 1..8 beats
   constraint c_align { (addr & ((1 << size) - 1)) == 0; } // size-aligned
   constraint c_bp    { rd_backpressure <= 4; wr_backpressure <= 4; }
+  // Size the write-data arrays in BOTH directions. A read carries no write
+  // data, so its arrays must be pinned to 0 — otherwise these rand dynamic
+  // arrays are unconstrained for reads and the solver may pick an enormous
+  // size (CNST-LASW warning + severe slowdown).
   constraint c_data  {
-    is_write -> data.size() == (len + 1);
-    is_write -> strb.size() == (len + 1);
+    data.size() == (is_write ? (len + 1) : 0);
+    strb.size() == (is_write ? (len + 1) : 0);
   }
+
+  // The core's DMA slave only accepts dword (size==3) writes whose byte-enables
+  // are 0x0f, 0xf0 or 0xff; any other strobe raises dma_alignment_error and the
+  // write is dropped (never reaches the CCM). We issue full-dword writes so the
+  // round-trip lands and the scoreboard checks all eight bytes.
+  constraint c_strb { foreach (strb[i]) strb[i] == 8'hff; }
 
   `uvm_object_utils_begin(axi4_master_seq_item)
     `uvm_field_int(is_write,        UVM_DEFAULT)

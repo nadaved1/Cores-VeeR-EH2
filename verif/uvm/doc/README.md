@@ -88,6 +88,7 @@ Xcelium / Questa: swap the target for `xrun-uvm` / `questa-uvm` (same variables)
 | `TEST`          | program to run (asm/C test or canned hex)                     | `hello_world`         |
 | `run_arg`       | extra run-time plusargs, e.g. `+ntb_random_seed=N`            | (empty)               |
 | `debug=1`       | enable waveform dump                                           | off                   |
+| `ASSERT_OFF=1`  | compile out the design's `` `RV_ASSERT_ON ``-gated SVA        | off (assertions on)   |
 
 `vcs-uvm-build` compiles into `./simv_uvm` (separate from the directed flow's
 `./simv`), so rebuild after any define change (e.g. adding `DMA_UVM_MASTER`).
@@ -189,7 +190,9 @@ see the program's writes as mismatches.
   states on every channel and can inject SLVERR (`err_rate_pct`, left 0 against a
   live program). The faithful Phase 1 mode remains the default.
 - **`veer_bus_stress_test`**: runs the program with IFU/LSU wait-state stress +
-  back-pressured DMA bursts + coverage. Multi-seed:
+  back-pressured DMA traffic + coverage. (The core's DMA slave port is
+  single-beat — no AXI bursts — so DMA stress is RREADY/BREADY back-pressure and
+  slave wait states on single-beat transfers, not burst length.) Multi-seed:
   ```
   make -f tools/Makefile vcs-uvm UVM_TEST=veer_bus_stress_test \
        UVM_DEFINES=+define+DMA_UVM_MASTER run_arg="+ntb_random_seed=7"

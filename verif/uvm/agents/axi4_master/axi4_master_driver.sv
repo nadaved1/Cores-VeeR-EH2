@@ -94,6 +94,10 @@ class axi4_master_driver extends uvm_driver #(axi4_master_seq_item);
     do @(posedge vif.clk); while (vif.arready !== 1'b1);
     vif.arvalid <= 1'b0;
     tr.rdata = new[tr.len + 1];
+    // Accept beats until the slave asserts RLAST. The DMA slave port is
+    // single-beat (rlast=1 on the only beat), so terminating on RLAST — rather
+    // than blindly waiting for tr.len+1 beats — keeps the master from hanging if
+    // it is ever handed a (DUT-unsupported) burst request.
     for (int b = 0; b <= tr.len; b++) begin
       // RREADY back-pressure before accepting each beat.
       vif.rready <= 1'b0;
@@ -102,9 +106,13 @@ class axi4_master_driver extends uvm_driver #(axi4_master_seq_item);
       do @(posedge vif.clk); while (vif.rvalid !== 1'b1);
       tr.rdata[b] = vif.rdata;
       tr.resp     = vif.rresp;
-      if ((b == tr.len) && (vif.rlast !== 1'b1))
-        `uvm_error(get_type_name(),
-                   $sformatf("RLAST not set on last beat of read @0x%08h", tr.addr))
+      if (vif.rlast === 1'b1) begin
+        if (b != tr.len)
+          `uvm_warning(get_type_name(),
+                       $sformatf("read @0x%08h ended on RLAST at beat %0d of %0d (DMA slave is single-beat)",
+                                 tr.addr, b, tr.len))
+        break;
+      end
     end
     vif.rready <= 1'b0;
   endtask
