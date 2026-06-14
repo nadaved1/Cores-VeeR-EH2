@@ -172,7 +172,6 @@ vcs-build: ${TBFILES} ${BUILD_DIR}/defines.h
 
 xrun-build: ${TBFILES} ${BUILD_DIR}/defines.h
 	$(XRUN) -64bit -elaborate $(XRUN_DEBUG) -q -sv -sysv  -nowarn CUVIHR \
-	  -xmlibdirpath $(BUILD_DIR) -xmlibdirname veer.build \
 	  -vlog_ext +.vh+.h $(defines) +incdir+$(BUILD_DIR) \
 	  -f ${RV_ROOT}/testbench/flist -top tb_top  ${TBFILES} $(PERF_DPI) \
 	  -elaborate  -snapshot ${snapshot} $(profile)
@@ -250,7 +249,7 @@ verilator: program.hex verilator-build
 
 xrun: program.hex xrun-build
 	$(XRUN) -64bit  +lic_queue -licqueue \
-	  -status -xmlibdirpath $(BUILD_DIR) -xmlibdirname veer.build \
+	  -status \
 	  -snapshot ${snapshot} -r $(snapshot) $(XRUN_DEBUG_RUN) $(run_arg) $(profile)
 
 vcs: program.hex vcs-build
