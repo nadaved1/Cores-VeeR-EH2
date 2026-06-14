@@ -87,10 +87,13 @@ class dma_write_read_seq extends axi4_master_base_seq;
 
   task body();
     bit [7:0] lens[] = '{0, 1, 3, 7};
-    repeat (num_txns) begin
+    for (int unsigned i = 0; i < num_txns; i++) begin
       bit [7:0]  len  = lens[$urandom % lens.size()];
       bit [31:0] addr = pick_addr(len);
       wr_rd_pair(addr, len, 3'd3);   // 64-bit beats
+      if ((i % 32) == 0)
+        `uvm_info(get_type_name(),
+          $sformatf("DMA write/read pair %0d/%0d", i + 1, num_txns), UVM_LOW)
     end
   endtask
 endclass
@@ -111,10 +114,14 @@ class dma_stress_seq extends axi4_master_base_seq;
 
   task body();
     bit [7:0] lens[] = '{1, 3, 7};
-    repeat (num_txns) begin
+    for (int unsigned i = 0; i < num_txns; i++) begin
       bit [7:0]  len  = lens[$urandom % lens.size()];
       bit [31:0] addr = pick_addr(len);
       wr_rd_pair(addr, len, 3'd3);
+      if ((i % 32) == 0)
+        `uvm_info(get_type_name(),
+          $sformatf("DMA stress pair %0d/%0d (back-pressured)", i + 1, num_txns),
+          UVM_LOW)
     end
   endtask
 endclass
