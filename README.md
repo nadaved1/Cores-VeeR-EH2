@@ -207,3 +207,45 @@ dhry_mt           - similar to above, but running two harts ( need to be run on 
 The `$RV_ROOT/testbench/hex` directory contains precompiled hex files of the tests, ready for simulation in case RISC-V SW tools are not installed.
 
 **Note**: The testbench has a simple synthesizable bridge that allows you to load the ICCM via load/store instructions. This is only supported for AXI4 builds.
+
+## UVM Bus/SoC Integration tests
+
+In addition to the simple directed `tb_top` flow above, the repository ships a
+UVM environment that verifies the **bus/SoC integration** of the core — its
+AXI4 IFU/LSU/SB master interfaces and the DMA slave port — under realistic and
+adversarial bus traffic (bursts, wait states, back-pressure, error responses).
+It lives in [verif/uvm/](verif/uvm/) and coexists with the Verilator flow
+without modifying it: the core still executes a real `program.hex` exactly as in
+`tb_top`.
+
+The UVM tests run on a commercial simulator (VCS by default; Xcelium and Questa
+are also supported). With `RV_ROOT` pointing at the repo root, the general form
+is:
+
+```sh
+RV_ROOT=$PWD make vcs-uvm -f $PWD/tools/Makefile \
+    UVM_TEST=<test> [UVM_DEFINES=+define+DMA_UVM_MASTER] [options] -C run/
+```
+
+Three tests are provided:
+
+```
+veer_bus_smoke_test   - program served entirely by the UVM slave responders
+veer_bus_dma_test     - UVM DMA master drives write/read-back traffic, checked
+                        by a scoreboard (needs +define+DMA_UVM_MASTER)
+veer_bus_stress_test  - slave wait-states + back-pressured DMA bursts + coverage
+```
+
+For example:
+
+```sh
+RV_ROOT=$PWD make vcs-uvm -f $PWD/tools/Makefile \
+    UVM_TEST=veer_bus_smoke_test -C run/
+```
+
+A run passes when the program prints `TEST_PASSED` **and** UVM prints a clean
+report (no `UVM_ERROR`/`UVM_FATAL`). Swap the target for `xrun-uvm` /
+`questa-uvm` to use Xcelium / Questa.
+
+See [verif/uvm/doc/README.md](verif/uvm/doc/README.md) for the full list of
+options, the environment architecture, and per-phase details.

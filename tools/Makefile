@@ -59,6 +59,15 @@ UVM_DEFINES =
 VCS_UVM_OPTS  = -ntb_opts uvm-1.2
 XRUN_UVM_OPTS = -uvm -uvmhome CDNS-1.2
 
+# Set ASSERT_OFF=1 to compile out the design's `RV_ASSERT_ON-gated SVA without
+# touching the snapshot. It works by `undef-ing the macro on the command line
+# right after the snapshot's common_defines.vh defines it: xrun/vcs/questa read
+# the listed files in order within one compilation unit, so every design file
+# pulled in afterwards (via uvm.flist) sees RV_ASSERT_ON undef'd.
+ifdef ASSERT_OFF
+  ASSERT_OFF_FILE = ${RV_ROOT}/tools/assert_off.vh
+endif
+
 
 
 # Define default test name
@@ -176,7 +185,7 @@ riviera-build: ${TBFILES} ${BUILD_DIR}/defines.h ${RV_ROOT}/testbench/flist.rivi
 vcs-uvm-build: ${BUILD_DIR}/defines.h
 	@t0=$$(date +%s); \
 	$(VCS) -full64 -assert svaext -sverilog $(VCS_UVM_OPTS) -timescale=1ns/1ps \
-	  +define+UVM $(UVM_DEFINES) +error+500 $(defines) +incdir+$(BUILD_DIR) \
+	  +define+UVM $(UVM_DEFINES) +error+500 $(defines) $(ASSERT_OFF_FILE) +incdir+$(BUILD_DIR) \
 	  -f ${UVM_DIR}/uvm.flist -top tb_uvm_top -o simv_uvm -l vcs_uvm.log; \
 	rc=$$?; t1=$$(date +%s); echo $$((t1 - t0)) > compile_time.txt; \
 	echo "=== VCS compile wallclock: $$((t1 - t0)) s (saved to compile_time.txt) ==="; \
@@ -189,23 +198,32 @@ vcs-uvm-build: ${BUILD_DIR}/defines.h
 #   make -f tools/Makefile vcs-uvm UVM_TEST=veer_bus_smoke_test
 vcs-uvm: program.hex vcs-uvm-build
 	./simv_uvm +UVM_TESTNAME=$(UVM_TEST) +UVM_VERBOSITY=$(UVM_VERB) \
-	  $(DEBUG_PLUS) +vcs+lic+wait -l sim_uvm.log $(run_arg) +UVM_NO_RELNOTES -suppress=ASLR_DETECTED_INFO
+	  $(DEBUG_PLUS) +vcs+lic+wait -l vcs_uvm.log $(run_arg) +UVM_NO_RELNOTES -suppress=ASLR_DETECTED_INFO
 
-# Xcelium UVM run (single-step elaborate + run; compile time is not separable
-# here, so clear compile_time.txt and the report shows it as n/a).
-xrun-uvm: program.hex ${BUILD_DIR}/defines.h
-	rm -f compile_time.txt
+# Xcelium UVM: two-phase (elaborate, then run) so the elaboration wallclock is
+# captured in compile_time.txt, matching the VCS/Questa flow. -elaborate builds
+# the snapshot in xcelium.d; the run step re-uses it with -R.
+xrun-uvm-build: ${BUILD_DIR}/defines.h
+	@t0=$$(date +%s); \
 	$(IRUN) -64bit +lic_queue -licqueue -q -sv -sysv $(XRUN_UVM_OPTS) -timescale 1ns/1ps \
-	  -nowarn CUVIHR +define+UVM $(UVM_DEFINES) -vlog_ext +.vh+.h $(defines) +incdir+$(BUILD_DIR) \
-	  -f ${UVM_DIR}/uvm.flist -top tb_uvm_top \
-	  +UVM_TESTNAME=$(UVM_TEST) +UVM_VERBOSITY=$(UVM_VERB) $(run_arg) -l xrun_uvm.log
+	  -nowarn CUVIHR +define+UVM $(UVM_DEFINES) -vlog_ext +.vh+.h $(defines) $(ASSERT_OFF_FILE) \
+	  +incdir+$(BUILD_DIR) -f ${UVM_DIR}/uvm.flist -top tb_uvm_top $(IRUN_DEBUG) -elaborate \
+	  -l xrun_uvm_build.log; \
+	rc=$$?; t1=$$(date +%s); echo $$((t1 - t0)) > compile_time.txt; \
+	echo "=== xrun elaborate wallclock: $$((t1 - t0)) s (saved to compile_time.txt) ==="; \
+	exit $$rc
+	touch xrun-uvm-build
+
+xrun-uvm: program.hex xrun-uvm-build
+	$(IRUN) -64bit +lic_queue -licqueue -R $(IRUN_DEBUG_RUN) \
+	  +UVM_TESTNAME=$(UVM_TEST) +UVM_VERBOSITY=$(UVM_VERB) $(run_arg) -l xrun_uvm.log +UVM_NO_RELNOTES
 
 # Questa UVM run. Assumes a Questa install with bundled UVM (-mfcu).
 questa-uvm: program.hex ${BUILD_DIR}/defines.h
 	vlib work_uvm
 	@t0=$$(date +%s); \
 	vlog -work work_uvm -sv -mfcu -timescale=1ns/1ps +define+UVM $(UVM_DEFINES) +incdir+${BUILD_DIR} \
-	  $(defines) -f ${UVM_DIR}/uvm.flist -l vlog_uvm.log; \
+	  $(defines) $(ASSERT_OFF_FILE) -f ${UVM_DIR}/uvm.flist -l vlog_uvm.log; \
 	rc=$$?; t1=$$(date +%s); echo $$((t1 - t0)) > compile_time.txt; \
 	echo "=== Questa compile wallclock: $$((t1 - t0)) s ==="; \
 	exit $$rc
@@ -275,7 +293,8 @@ endif
 help:
 	@echo Make sure the environment variable RV_ROOT is set.
 	@echo Possible targets: verilator vcs irun vlog riviera help clean all verilator-build irun-build vcs-build riviera-build program.hex
-	@echo UVM bus/SoC integration targets: vcs-uvm vcs-uvm-build xrun-uvm questa-uvm "(set UVM_TEST=<test>)"
+	@echo UVM bus/SoC integration targets: vcs-uvm vcs-uvm-build xrun-uvm xrun-uvm-build questa-uvm "(set UVM_TEST=<test>)"
+	@echo "  ASSERT_OFF=1 compiles out the design's RV_ASSERT_ON SVA (no snapshot edit)"
 
 FORCE: ;
 .PHONY: help clean verilator vcs irun vlog riviera vcs-uvm xrun-uvm questa-uvm FORCE

@@ -88,6 +88,7 @@ Xcelium / Questa: swap the target for `xrun-uvm` / `questa-uvm` (same variables)
 | `TEST`          | program to run (asm/C test or canned hex)                     | `hello_world`         |
 | `run_arg`       | extra run-time plusargs, e.g. `+ntb_random_seed=N`            | (empty)               |
 | `debug=1`       | enable waveform dump                                           | off                   |
+| `ASSERT_OFF=1`  | compile out the design's `` `RV_ASSERT_ON ``-gated SVA        | off (assertions on)   |
 
 `vcs-uvm-build` compiles into `./simv_uvm` (separate from the directed flow's
 `./simv`), so rebuild after any define change (e.g. adding `DMA_UVM_MASTER`).
