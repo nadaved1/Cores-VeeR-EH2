@@ -34,7 +34,7 @@ snapshot = $(target)
 
 # Allow tool override
 VEER_CONFIG = ${RV_ROOT}/configs/veer.config
-IRUN = xrun
+XRUN = xrun
 VCS = vcs
 VLOG = qverilog
 VERILATOR = verilator
@@ -85,8 +85,8 @@ endif
 
 ifdef debug
  DEBUG_PLUS = +dumpon
- IRUN_DEBUG = -access +rc
- IRUN_DEBUG_RUN = -input ${RV_ROOT}/testbench/input.tcl
+ XRUN_DEBUG = -access +rc
+ XRUN_DEBUG_RUN = -input ${RV_ROOT}/testbench/input.tcl
  VCS_DEBUG = -debug_access
  VERILATOR_DEBUG = --trace
  # Name the Verilator VCD after the test so each run dumps <TEST>.vcd
@@ -127,7 +127,7 @@ VERILATOR_MAKE_FLAGS = OPT_FAST="-Os"
 all: clean verilator
 
 clean:
-	rm -rf *.log *.s *.hex *.dis *.tbl irun* vcs* simv* snapshots veer* \
+	rm -rf *.log *.s *.hex *.dis *.tbl xrun* vcs* simv* snapshots veer* \
 	verilator* *.map *.exe obj* *.o ucli.key vc_hdrs.h csrc *.csv \
 	work dataset.asdb  library.cfg vsimsa.cfg  riviera-build wave.asdb \
 	SimJTAG.so .program_hex_test \
@@ -157,13 +157,13 @@ vcs-build: ${TBFILES} ${BUILD_DIR}/defines.h
 	  -f ${RV_ROOT}/testbench/flist ${TBFILES} -l vcs.log
 	touch vcs-build
 
-irun-build: ${TBFILES} ${BUILD_DIR}/defines.h
-	$(IRUN) -64bit -elaborate $(IRUN_DEBUG) -q -sv -sysv  -nowarn CUVIHR \
+xrun-build: ${TBFILES} ${BUILD_DIR}/defines.h
+	$(XRUN) -64bit -elaborate $(XRUN_DEBUG) -q -sv -sysv  -nowarn CUVIHR \
 	  -xmlibdirpath $(BUILD_DIR) -xmlibdirname veer.build \
 	  -vlog_ext +.vh+.h $(defines) +incdir+$(BUILD_DIR) \
 	  -f ${RV_ROOT}/testbench/flist -top tb_top  ${TBFILES} \
 	  -elaborate  -snapshot ${snapshot} $(profile)
-	touch irun-build
+	touch xrun-build
 
 SimJTAG.so : ${RV_ROOT}/testbench/remote_bitbang.cc ${RV_ROOT}/testbench/SimJTAG.cc
 	ccomp -dpi ${RV_ROOT}/testbench/remote_bitbang.cc ${RV_ROOT}/testbench/SimJTAG.cc -o SimJTAG
@@ -205,9 +205,9 @@ vcs-uvm: program.hex vcs-uvm-build
 # the snapshot in xcelium.d; the run step re-uses it with -R.
 xrun-uvm-build: ${BUILD_DIR}/defines.h
 	@t0=$$(date +%s); \
-	$(IRUN) -64bit +lic_queue -licqueue -q -sv -sysv $(XRUN_UVM_OPTS) -timescale 1ns/1ps \
+	$(XRUN) -64bit +lic_queue -licqueue -q -sv -sysv $(XRUN_UVM_OPTS) -timescale 1ns/1ps \
 	  -nowarn CUVIHR +define+UVM $(UVM_DEFINES) -vlog_ext +.vh+.h $(defines) $(ASSERT_OFF_FILE) \
-	  +incdir+$(BUILD_DIR) -f ${UVM_DIR}/uvm.flist -top tb_uvm_top $(IRUN_DEBUG) -elaborate \
+	  +incdir+$(BUILD_DIR) -f ${UVM_DIR}/uvm.flist -top tb_uvm_top $(XRUN_DEBUG) -elaborate -plusperf \
 	  -l xrun_uvm_build.log; \
 	rc=$$?; t1=$$(date +%s); echo $$((t1 - t0)) > compile_time.txt; \
 	echo "=== xrun elaborate wallclock: $$((t1 - t0)) s (saved to compile_time.txt) ==="; \
@@ -215,7 +215,7 @@ xrun-uvm-build: ${BUILD_DIR}/defines.h
 	touch xrun-uvm-build
 
 xrun-uvm: program.hex xrun-uvm-build
-	$(IRUN) -64bit +lic_queue -licqueue -R $(IRUN_DEBUG_RUN) \
+	$(XRUN) -64bit +lic_queue -licqueue -R $(XRUN_DEBUG_RUN) \
 	  +UVM_TESTNAME=$(UVM_TEST) +UVM_VERBOSITY=$(UVM_VERB) $(run_arg) -l xrun_uvm.log +UVM_NO_RELNOTES
 
 # Questa UVM run. Assumes a Questa install with bundled UVM (-mfcu).
@@ -235,10 +235,10 @@ questa-uvm: program.hex ${BUILD_DIR}/defines.h
 verilator: program.hex verilator-build
 	./obj_dir/Vtb_top $(run_arg) $(VERILATOR_RUN_ARGS)
 
-irun: program.hex irun-build
-	$(IRUN) -64bit  +lic_queue -licqueue \
+xrun: program.hex xrun-build
+	$(XRUN) -64bit  +lic_queue -licqueue \
 	  -status -xmlibdirpath $(BUILD_DIR) -xmlibdirname veer.build \
-	  -snapshot ${snapshot} -r $(snapshot) $(IRUN_DEBUG_RUN) $(run_arg) $(profile)
+	  -snapshot ${snapshot} -r $(snapshot) $(XRUN_DEBUG_RUN) $(run_arg) $(profile)
 
 vcs: program.hex vcs-build
 	./simv $(DEBUG_PLUS) +vcs+lic+wait  -l vcs.log $(run_arg)
@@ -292,9 +292,9 @@ endif
 
 help:
 	@echo Make sure the environment variable RV_ROOT is set.
-	@echo Possible targets: verilator vcs irun vlog riviera help clean all verilator-build irun-build vcs-build riviera-build program.hex
+	@echo Possible targets: verilator vcs xrun vlog riviera help clean all verilator-build xrun-build vcs-build riviera-build program.hex
 	@echo UVM bus/SoC integration targets: vcs-uvm vcs-uvm-build xrun-uvm xrun-uvm-build questa-uvm "(set UVM_TEST=<test>)"
 	@echo "  ASSERT_OFF=1 compiles out the design's RV_ASSERT_ON SVA (no snapshot edit)"
 
 FORCE: ;
-.PHONY: help clean verilator vcs irun vlog riviera vcs-uvm xrun-uvm questa-uvm FORCE
+.PHONY: help clean verilator vcs xrun vlog riviera vcs-uvm xrun-uvm questa-uvm FORCE
