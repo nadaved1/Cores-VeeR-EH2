@@ -55,6 +55,12 @@ class axi4_master_seq_item extends uvm_sequence_item;
     strb.size() == (is_write ? (len + 1) : 0);
   }
 
+  // The core's DMA slave only accepts dword (size==3) writes whose byte-enables
+  // are 0x0f, 0xf0 or 0xff; any other strobe raises dma_alignment_error and the
+  // write is dropped (never reaches the CCM). We issue full-dword writes so the
+  // round-trip lands and the scoreboard checks all eight bytes.
+  constraint c_strb { foreach (strb[i]) strb[i] == 8'hff; }
+
   `uvm_object_utils_begin(axi4_master_seq_item)
     `uvm_field_int(is_write,        UVM_DEFAULT)
     `uvm_field_int(addr,            UVM_DEFAULT)
