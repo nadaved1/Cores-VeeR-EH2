@@ -219,11 +219,13 @@ without modifying it: the core still executes a real `program.hex` exactly as in
 `tb_top`.
 
 The UVM tests run on a commercial simulator (VCS by default; Xcelium and Questa
-are also supported). With `RV_ROOT` pointing at the repo root, the general form
-is:
+are also supported). `RV_ROOT` defaults to the repo root (derived from the
+Makefile location), so it need not be set explicitly; export it only to override.
+The `run/` scratch dir is tracked in the repo, so `-C run/` works on a fresh
+clone with no `mkdir`. The general form is:
 
 ```sh
-RV_ROOT=$PWD make vcs-uvm -f $PWD/tools/Makefile \
+make vcs-uvm -f $PWD/tools/Makefile \
     UVM_TEST=<test> [UVM_DEFINES=+define+DMA_UVM_MASTER] [options] -C run/
 ```
 

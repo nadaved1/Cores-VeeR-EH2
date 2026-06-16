@@ -23,9 +23,18 @@ ABI = -mabi=ilp32 -march=rv32imac_zicsr
 
 
 
+# Default RV_ROOT to the repo root, derived from this Makefile's own location
+# ($RV_ROOT/tools/Makefile), so it need not be set explicitly. Using the
+# Makefile path (not $(CURDIR)) keeps the default correct even under `-C run/`.
+# An explicit env var or command-line RV_ROOT= still wins (?= only fills unset).
+RV_ROOT ?= $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)
+# The testbench flists reference $RV_ROOT literally and rely on the simulator
+# expanding it from the environment, so export it (whether defaulted or set).
+export RV_ROOT
+
 # Check for RV_ROOT
 ifeq (,$(wildcard ${RV_ROOT}/configs/veer.config))
-$(error env var RV_ROOT does not point to a valid dir! Exiting!)
+$(error RV_ROOT ($(RV_ROOT)) does not point to a valid VeeR checkout! Set RV_ROOT or run make from the repo root. Exiting!)
 endif
 
 # Allow snapshot override
@@ -109,6 +118,10 @@ VPATH = $(TEST_DIR) $(BUILD_DIR) $(TBDIR)
 
 TBFILES = $(TBDIR)/tb_top.sv $(TBDIR)/ahb_sif.sv
 
+# DPI-C wallclock helper, shared with the UVM flow, used by tb_top's end-of-run
+# performance report (sim time + simulation speed).
+PERF_DPI = ${UVM_DIR}/tb/uvm_perf_dpi.c
+
 defines  = $(BUILD_DIR)/common_defines.vh
 defines += ${RV_ROOT}/design/include/eh2_def.sv
 defines += $(BUILD_DIR)/eh2_pdef.vh
@@ -147,21 +160,23 @@ verilator-build: ${TBFILES} ${BUILD_DIR}/defines.h test_tb_top.cpp
 	$(VERILATOR)  --cc -CFLAGS ${CFLAGS} $(defines) \
 	  $(includes) -I${RV_ROOT}/testbench -f ${RV_ROOT}/testbench/flist \
 	  $(VERILATOR_WARN) ${TBFILES} --top-module tb_top \
-	  -exe test_tb_top.cpp --autoflush $(VERILATOR_DEBUG) --no-timing
+	  -exe test_tb_top.cpp $(PERF_DPI) --autoflush $(VERILATOR_DEBUG) --no-timing
 	$(MAKE) -j -C obj_dir -f Vtb_top.mk $(VERILATOR_MAKE_FLAGS)
 	touch verilator-build
 
 vcs-build: ${TBFILES} ${BUILD_DIR}/defines.h
 	$(VCS) -full64 -assert svaext -sverilog \
 	  +error+500  $(defines) +incdir+$(BUILD_DIR)\
-	  -f ${RV_ROOT}/testbench/flist ${TBFILES} -l vcs.log
+	  -f ${RV_ROOT}/testbench/flist ${TBFILES} $(PERF_DPI) -l vcs.log
 	touch vcs-build
 
+# -messages makes xmelab print the design hierarchy summary (instance/unique
+# module counts, registers, always/initial blocks) at elaboration.
 xrun-build: ${TBFILES} ${BUILD_DIR}/defines.h
 	$(XRUN) -64bit -elaborate $(XRUN_DEBUG) -q -sv -sysv  -nowarn CUVIHR \
-	  -xmlibdirpath $(BUILD_DIR) -xmlibdirname veer.build \
+	  -messages \
 	  -vlog_ext +.vh+.h $(defines) +incdir+$(BUILD_DIR) \
-	  -f ${RV_ROOT}/testbench/flist -top tb_top  ${TBFILES} \
+	  -f ${RV_ROOT}/testbench/flist -top tb_top  ${TBFILES} $(PERF_DPI) \
 	  -elaborate  -snapshot ${snapshot} $(profile)
 	touch xrun-build
 
@@ -206,6 +221,7 @@ vcs-uvm: program.hex vcs-uvm-build
 xrun-uvm-build: ${BUILD_DIR}/defines.h
 	@t0=$$(date +%s); \
 	$(XRUN) -64bit +lic_queue -licqueue -q -sv -sysv $(XRUN_UVM_OPTS) -timescale 1ns/1ps \
+	  -messages \
 	  -nowarn CUVIHR +define+UVM $(UVM_DEFINES) -vlog_ext +.vh+.h $(defines) $(ASSERT_OFF_FILE) \
 	  +incdir+$(BUILD_DIR) -f ${UVM_DIR}/uvm.flist -top tb_uvm_top $(XRUN_DEBUG) -elaborate -plusperf \
 	  -l xrun_uvm_build.log; \
@@ -237,7 +253,7 @@ verilator: program.hex verilator-build
 
 xrun: program.hex xrun-build
 	$(XRUN) -64bit  +lic_queue -licqueue \
-	  -status -xmlibdirpath $(BUILD_DIR) -xmlibdirname veer.build \
+	  -status \
 	  -snapshot ${snapshot} -r $(snapshot) $(XRUN_DEBUG_RUN) $(run_arg) $(profile)
 
 vcs: program.hex vcs-build

@@ -1,0 +1,6 @@
+# Scratch working dir for `make ... -C run/`. Keep the directory tracked so the
+# documented `-C run/` invocation works on a fresh clone, but ignore everything
+# the build drops here.
+*
+!.gitignore
+!.gitkeep

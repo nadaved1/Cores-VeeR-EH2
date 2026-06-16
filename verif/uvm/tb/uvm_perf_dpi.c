@@ -19,6 +19,13 @@
 //-----------------------------------------------------------------------------
 #include <time.h>
 
+// Force C linkage when this file is pulled into a C++ compile (e.g. Verilator's
+// generated harness compiles user sources with g++). Verilator emits the DPI
+// import as `extern "C"`, so the definition must match or linking fails.
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Maps to SystemVerilog `import "DPI-C" function real sv_wall_time_sec();`
 double sv_wall_time_sec(void)
 {
@@ -26,3 +33,7 @@ double sv_wall_time_sec(void)
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
 }
+
+#ifdef __cplusplus
+}
+#endif
