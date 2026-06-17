@@ -5,3 +5,13 @@ This is dhrystone, compiled according to the spec:
 
   make -f $RV_ROOT/tools/Makefile [<simulator>] TEST=dhry
 
+The iteration count defaults to 1000. Override it with DHRY_RUNS for a longer
+run (runtime scales ~linearly), e.g. ~1800 s on a typical event simulator:
+
+  make -f $RV_ROOT/tools/Makefile [<simulator>] TEST=dhry DHRY_RUNS=27000
+
+A prebuilt long version (27000 runs) is committed as testbench/hex/dhry_long.hex
+and runs via the canned-hex flow when no RISC-V toolchain is installed:
+
+  make -f $RV_ROOT/tools/Makefile [<simulator>] TEST=dhry_long
+

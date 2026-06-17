@@ -1,2 +1,5 @@
 OFILES = crt0.o dhry_1.o dhry_2.o write.o
-TEST_CFLAGS = -g -O3
+# Dhrystone iteration count (default 1000). Override for a longer run, e.g.
+#   make TEST=dhry DHRY_RUNS=27000   (~1800 s on a typical event simulator).
+DHRY_RUNS ?= 1000
+TEST_CFLAGS = -g -O3 -DNUMBER_OF_RUNS=$(DHRY_RUNS)
