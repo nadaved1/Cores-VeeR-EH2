@@ -14,8 +14,9 @@
 // limitations under the License.
 //
 //-----------------------------------------------------------------------------
-// uvm_perf_dpi : tiny DPI-C helper returning a monotonic wallclock timestamp in
-// seconds, used by tb_uvm_top to report simulation wallclock time and speed.
+// perf_dpi : tiny DPI-C helper returning a monotonic wallclock timestamp in
+// seconds, used by both tb_top (directed flow) and tb_uvm_top (UVM flow) to
+// report simulation wallclock time and speed.
 //-----------------------------------------------------------------------------
 #include <time.h>
 
