@@ -120,7 +120,7 @@ TBFILES = $(TBDIR)/tb_top.sv $(TBDIR)/ahb_sif.sv
 
 # DPI-C wallclock helper, shared with the UVM flow, used by tb_top's end-of-run
 # performance report (sim time + simulation speed).
-PERF_DPI = ${UVM_DIR}/tb/uvm_perf_dpi.c
+PERF_DPI = ${TBDIR}/perf_dpi.c
 
 defines  = $(BUILD_DIR)/common_defines.vh
 defines += ${RV_ROOT}/design/include/eh2_def.sv
@@ -220,7 +220,7 @@ vcs-uvm: program.hex vcs-uvm-build
 # the snapshot in xcelium.d; the run step re-uses it with -R.
 xrun-uvm-build: ${BUILD_DIR}/defines.h
 	@t0=$$(date +%s); \
-	$(XRUN) -64bit +lic_queue -licqueue -q -sv -sysv $(XRUN_UVM_OPTS) -timescale 1ns/1ps \
+	$(XRUN) -64bit +lic_queue -licqueue -sv -sysv $(XRUN_UVM_OPTS) -timescale 1ns/1ps \
 	  -messages \
 	  -nowarn CUVIHR +define+UVM $(UVM_DEFINES) -vlog_ext +.vh+.h $(defines) $(ASSERT_OFF_FILE) \
 	  +incdir+$(BUILD_DIR) -f ${UVM_DIR}/uvm.flist -top tb_uvm_top $(XRUN_DEBUG) -elaborate -plusperf \
