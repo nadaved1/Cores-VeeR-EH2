@@ -19,7 +19,10 @@ CONF_PARAMS = -set=build_axi4
 
 TEST_CFLAGS = -g -O3 -funroll-all-loops 
 
-ABI = -mabi=ilp32 -march=rv32imac_zicsr
+# Zifencei (fence.i) is split out of the base ISA by newer toolchains (gcc >=12),
+# so it must be named explicitly; the EH2 core implements it. Without it,
+# hand-written fence.i (e.g. hello_world_iccm.s) fails to assemble.
+ABI = -mabi=ilp32 -march=rv32imac_zicsr_zifencei
 
 
 
