@@ -149,7 +149,7 @@ clean:
 	rm -rf *.log *.s *.hex *.dis *.tbl xrun* vcs* simv* snapshots veer* \
 	verilator* *.map *.exe obj* *.o ucli.key vc_hdrs.h csrc *.csv \
 	work dataset.asdb  library.cfg vsimsa.cfg  riviera-build wave.asdb \
-	SimJTAG.so .program_hex_test \
+	SimJTAG.so .program_hex_test .build_sig \
 	run/* \
 	work_uvm xcelium.d xrun.history xrun.key *-uvm-build cov_work urgReport compile_time.txt
 
@@ -292,20 +292,30 @@ program.hex:
 	@echo Building $(TEST) via $(TEST_DIR)/$(TEST).makefile
 	$(MAKE) -f $(TEST_DIR)/$(TEST).makefile
 else
-program.hex: $(OFILES) $(LINK)
+program.hex: $(OFILES) $(LINK) .build_sig
 	@echo Building $(TEST)
 	$(GCC_PREFIX)-gcc $(ABI) -nostartfiles -lgcc -T$(LINK) -Wl,-Map=$(TEST).map -o $(TEST).exe $(OFILES)
 	$(GCC_PREFIX)-objcopy -O verilog  $(TEST).exe program.hex
 	$(GCC_PREFIX)-objdump -S  $(TEST).exe > $(TEST).dis
 	@echo Completed building $(TEST)
 
+# Object files and program.hex use fixed names (crt0.o, program.hex, ...), so a
+# plain prerequisite won't notice when only TEST or its compile flags change -
+# switching e.g. dhry -> dhry_long, or changing DHRY_RUNS, would silently reuse
+# the previous build. .build_sig records the current TEST + flags; FORCE rechecks
+# it every run and rewrites it (bumping its mtime) only on change, so the objects
+# and program.hex rebuild exactly when the selection differs.
+.build_sig: FORCE
+	@sig='$(TEST) $(TEST_CFLAGS) $(ABI)'; \
+	[ "$$(cat $@ 2> /dev/null)" = "$$sig" ] || echo "$$sig" > $@
 
-%.o : %.s ${BUILD_DIR}/defines.h
+
+%.o : %.s ${BUILD_DIR}/defines.h .build_sig
 	$(GCC_PREFIX)-cpp -I${BUILD_DIR}  $<  > $*.cpp.s
 	$(GCC_PREFIX)-as ${ABI} $*.cpp.s -o $@
 
 
-%.o : %.c ${BUILD_DIR}/defines.h
+%.o : %.c ${BUILD_DIR}/defines.h .build_sig
 	$(GCC_PREFIX)-gcc ${includes} ${TEST_CFLAGS} -DCOMPILER_FLAGS="\"${TEST_CFLAGS}\"" ${ABI} -std=gnu17 -c $< -o $@
 
 endif
