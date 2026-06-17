@@ -154,8 +154,13 @@ main ()
   }
   printf ("\n");
   #else
-  // We do not have scanf.  Hardwire number of runs.
-  Number_Of_Runs = 1000;
+  // We do not have scanf.  Hardwire number of runs. Override at compile time
+  // with -DNUMBER_OF_RUNS=<n> (the dhry.mki exposes this as DHRY_RUNS, e.g.
+  // `make TEST=dhry DHRY_RUNS=27000` for a ~1800 s run on an event simulator).
+  #ifndef NUMBER_OF_RUNS
+  #define NUMBER_OF_RUNS 1000
+  #endif
+  Number_Of_Runs = NUMBER_OF_RUNS;
   #endif
 
   printf ("Execution starts, %d runs through Dhrystone\n", Number_Of_Runs);

@@ -19,15 +19,21 @@ CONF_PARAMS = -set=build_axi4
 
 TEST_CFLAGS = -g -O3 -funroll-all-loops 
 
-ABI = -mabi=ilp32 -march=rv32imac_zicsr
+# Zifencei (fence.i) is split out of the base ISA by newer toolchains (gcc >=12),
+# so it must be named explicitly; the EH2 core implements it. Without it,
+# hand-written fence.i (e.g. hello_world_iccm.s) fails to assemble.
+ABI = -mabi=ilp32 -march=rv32imac_zicsr_zifencei
 
 
 
 # Default RV_ROOT to the repo root, derived from this Makefile's own location
 # ($RV_ROOT/tools/Makefile), so it need not be set explicitly. Using the
 # Makefile path (not $(CURDIR)) keeps the default correct even under `-C run/`.
+# Snapshot the path with := now, before the later `-include ...mki` appends to
+# MAKEFILE_LIST (a lazy ?= would re-read $(lastword ...) and pick up the .mki).
 # An explicit env var or command-line RV_ROOT= still wins (?= only fills unset).
-RV_ROOT ?= $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)
+THIS_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
+RV_ROOT ?= $(abspath $(dir $(THIS_MAKEFILE))/..)
 # The testbench flists reference $RV_ROOT literally and rely on the simulator
 # expanding it from the environment, so export it (whether defaulted or set).
 export RV_ROOT

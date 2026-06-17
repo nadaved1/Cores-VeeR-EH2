@@ -1,0 +1,14 @@
+# dhry_long: the standard Dhrystone built with a large iteration count so the
+# run lasts ~1800 s on a typical event simulator (vs ~100 s for the default
+# 1000-run dhry). It reuses the testbench/tests/dhry sources via VPATH instead
+# of duplicating them; only the iteration count differs.
+#
+# A prebuilt image is also committed at testbench/hex/dhry_long.hex, so this
+# test runs via the canned-hex flow when no RISC-V toolchain is installed.
+DHRY_SRC = $(TBDIR)/tests/dhry
+VPATH += $(DHRY_SRC)
+OFILES = crt0.o dhry_1.o dhry_2.o write.o
+LINK = $(DHRY_SRC)/dhry.ld
+# Iteration count (override with DHRY_RUNS=<n>); 27000 ~= 1800 s.
+DHRY_RUNS ?= 27000
+TEST_CFLAGS = -g -O3 -DNUMBER_OF_RUNS=$(DHRY_RUNS)
