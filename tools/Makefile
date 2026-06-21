@@ -106,9 +106,10 @@ ifdef debug
  # not just top-level/registered signals); bare -debug_access yields tiny dumps.
  VCS_DEBUG = -debug_access+all
  VERILATOR_DEBUG = --trace
- # Name the Verilator VCD after the test so each run dumps <TEST>.vcd
- # (e.g. dhry.vcd) into the working dir instead of a generic sim.vcd.
- VERILATOR_RUN_ARGS = +vcdfile=$(TEST).vcd
+ # Name the VCD after the test so each run dumps <TEST>.vcd (e.g. dhry.vcd)
+ # into the working dir instead of a generic sim.vcd. Shared by the Verilator
+ # and VCS run targets; tb_top.sv reads +vcdfile for the $dumpfile name.
+ VCD_FILE_ARG = +vcdfile=$(TEST).vcd
  RIVIERA_DEBUG = +access +r
 endif
 
@@ -149,7 +150,7 @@ all: clean verilator
 
 clean:
 	rm -rf *.log *.s *.hex *.dis *.tbl xrun* vcs* simv* snapshots veer* \
-	verilator* *.map *.exe obj* *.o ucli.key vc_hdrs.h csrc *.csv *.vcd *.vpd \
+	verilator* *.map *.exe obj* *.o ucli.key vc_hdrs.h csrc *.csv *.vcd \
 	work dataset.asdb  library.cfg vsimsa.cfg  riviera-build wave.asdb \
 	SimJTAG.so .program_hex_test .build_sig \
 	run/* \
@@ -257,7 +258,7 @@ questa-uvm: program.hex ${BUILD_DIR}/defines.h
 #################### TEST Simulation Run ###############################
 
 verilator: program.hex verilator-build
-	./obj_dir/Vtb_top $(run_arg) $(VERILATOR_RUN_ARGS)
+	./obj_dir/Vtb_top $(run_arg) $(VCD_FILE_ARG)
 
 xrun: program.hex xrun-build
 	$(XRUN) -64bit  +lic_queue -licqueue \
@@ -265,18 +266,7 @@ xrun: program.hex xrun-build
 	  -snapshot ${snapshot} -r $(snapshot) $(XRUN_DEBUG_RUN) $(run_arg) $(profile)
 
 vcs: program.hex vcs-build
-	./simv $(DEBUG_PLUS) +vcs+lic+wait  -l vcs.log $(run_arg)
-
-# Dump waves entirely from the simulator side (no $dumpvars in the RTL/tb):
-# drive simv via a generated UCLI do-file. Requires simv built with
-# -debug_access, so build with debug=1 (e.g. clear a stale non-debug build:
-# rm -f vcs-build simv; make vcs-dump TEST=dhry debug=1). UCLI only writes
-# VPD/EVCD (not plain VCD), so dump the whole tb_top hierarchy (-depth 0) to
-# <TEST>.vpd, run to $finish, then convert to <TEST>.vcd with vpd2vcd.
-vcs-dump: program.hex vcs-build
-	@printf 'dump -file %s.vpd -type VPD\ndump -add tb_top -depth 0\nrun\nexit\n' "$(TEST)" > vcs_dump.tcl
-	./simv -ucli -do vcs_dump.tcl +vcs+lic+wait -l vcs.log $(run_arg)
-	vpd2vcd $(TEST).vpd $(TEST).vcd
+	./simv $(DEBUG_PLUS) $(VCD_FILE_ARG) +vcs+lic+wait  -l vcs.log $(run_arg)
 
 vlog: program.hex ${TBFILES} ${BUILD_DIR}/defines.h
 	$(VLOG) -l vlog.log -sv -mfcu +incdir+${BUILD_DIR}\
@@ -337,10 +327,10 @@ endif
 
 help:
 	@echo Make sure the environment variable RV_ROOT is set.
-	@echo Possible targets: verilator vcs vcs-dump xrun vlog riviera help clean all verilator-build xrun-build vcs-build riviera-build program.hex
-	@echo "  vcs-dump dumps <TEST>.vcd via UCLI (no RTL changes); needs debug=1 build"
+	@echo Possible targets: verilator vcs xrun vlog riviera help clean all verilator-build xrun-build vcs-build riviera-build program.hex
+	@echo "  build with debug=1 to dump waves; VCS/Verilator write <TEST>.vcd"
 	@echo UVM bus/SoC integration targets: vcs-uvm vcs-uvm-build xrun-uvm xrun-uvm-build questa-uvm "(set UVM_TEST=<test>)"
 	@echo "  ASSERT_OFF=1 compiles out the design's RV_ASSERT_ON SVA (no snapshot edit)"
 
 FORCE: ;
-.PHONY: help clean verilator vcs vcs-dump xrun vlog riviera vcs-uvm xrun-uvm questa-uvm FORCE
+.PHONY: help clean verilator vcs xrun vlog riviera vcs-uvm xrun-uvm questa-uvm FORCE
