@@ -92,9 +92,6 @@ module tb_top;
     wire                        dma_hready_out;
     int                         commit_count[2];
 
-    // VCD file name for the +dumpon flow; overridable via +vcdfile=<name>.
-    string                      vcdfile = "sim.vcd";
-
     logic [1:0]                 wb_valid;
     logic [1:0][4:0]            wb_dest;
     logic [1:0][31:0]           wb_data;
@@ -441,11 +438,7 @@ module tb_top;
         preload_iccm();
 
 `ifndef VERILATOR
-        if($test$plusargs("dumpon")) begin
-            void'($value$plusargs("vcdfile=%s", vcdfile));
-            $dumpfile(vcdfile);
-            $dumpvars;
-        end
+        if($test$plusargs("dumpon")) $dumpvars;
         forever  core_clk = #5 ~core_clk;
 `endif
     end
