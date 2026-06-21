@@ -102,7 +102,9 @@ ifdef debug
  DEBUG_PLUS = +dumpon
  XRUN_DEBUG = -access +rc
  XRUN_DEBUG_RUN = -input ${RV_ROOT}/testbench/input.tcl
- VCS_DEBUG = -debug_access
+ # +all is required for full waveform visibility (dump deep hierarchy nets,
+ # not just top-level/registered signals); bare -debug_access yields tiny dumps.
+ VCS_DEBUG = -debug_access+all
  VERILATOR_DEBUG = --trace
  # Name the Verilator VCD after the test so each run dumps <TEST>.vcd
  # (e.g. dhry.vcd) into the working dir instead of a generic sim.vcd.
