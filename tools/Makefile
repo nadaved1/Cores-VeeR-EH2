@@ -104,9 +104,10 @@ ifdef debug
  XRUN_DEBUG_RUN = -input ${RV_ROOT}/testbench/input.tcl
  VCS_DEBUG = -debug_access
  VERILATOR_DEBUG = --trace
- # Name the Verilator VCD after the test so each run dumps <TEST>.vcd
- # (e.g. dhry.vcd) into the working dir instead of a generic sim.vcd.
- VERILATOR_RUN_ARGS = +vcdfile=$(TEST).vcd
+ # Name the VCD after the test so each run dumps <TEST>.vcd (e.g. dhry.vcd)
+ # into the working dir instead of a generic sim.vcd. Shared by the Verilator
+ # and VCS run targets; tb_top.sv reads +vcdfile for the $dumpfile name.
+ VCD_FILE_ARG = +vcdfile=$(TEST).vcd
  RIVIERA_DEBUG = +access +r
 endif
 
@@ -171,7 +172,7 @@ verilator-build: ${TBFILES} ${BUILD_DIR}/defines.h test_tb_top.cpp
 	touch verilator-build
 
 vcs-build: ${TBFILES} ${BUILD_DIR}/defines.h
-	$(VCS) -full64 -assert svaext -sverilog \
+	$(VCS) -full64 -assert svaext -sverilog $(VCS_DEBUG) \
 	  +error+500  $(defines) +incdir+$(BUILD_DIR)\
 	  -f ${RV_ROOT}/testbench/flist ${TBFILES} $(PERF_DPI) -l vcs.log
 	touch vcs-build
@@ -255,7 +256,7 @@ questa-uvm: program.hex ${BUILD_DIR}/defines.h
 #################### TEST Simulation Run ###############################
 
 verilator: program.hex verilator-build
-	./obj_dir/Vtb_top $(run_arg) $(VERILATOR_RUN_ARGS)
+	./obj_dir/Vtb_top $(run_arg) $(VCD_FILE_ARG)
 
 xrun: program.hex xrun-build
 	$(XRUN) -64bit  +lic_queue -licqueue \
@@ -263,7 +264,7 @@ xrun: program.hex xrun-build
 	  -snapshot ${snapshot} -r $(snapshot) $(XRUN_DEBUG_RUN) $(run_arg) $(profile)
 
 vcs: program.hex vcs-build
-	./simv $(DEBUG_PLUS) +vcs+lic+wait  -l vcs.log $(run_arg)
+	./simv $(DEBUG_PLUS) $(VCD_FILE_ARG) +vcs+lic+wait  -l vcs.log $(run_arg)
 
 vlog: program.hex ${TBFILES} ${BUILD_DIR}/defines.h
 	$(VLOG) -l vlog.log -sv -mfcu +incdir+${BUILD_DIR}\
